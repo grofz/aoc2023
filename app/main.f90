@@ -3,5 +3,5 @@ program aoc2023
   implicit none
 
   01 call day2301('inp/01/input.txt')
-  !01 call day2301('inp/01/test2.txt')
+ !01 call day2301('inp/01/test.txt')
 end program aoc2023
