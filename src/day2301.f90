@@ -9,82 +9,33 @@ contains
   subroutine day2301(file)
     character(len=*), intent(in) :: file
 
-    type(string_t), allocatable :: lines(:), help(:)
-    integer :: i, val, ans1, ans2, val_help
+    type(string_t), allocatable :: lines(:)
+    integer :: i, ans1, ans2
 
     lines = read_strings(file)
-help = read_strings('inp/01/solution2.txt')
     ans1 = 0
     ans2 = 0
     do i=1, size(lines)
-      val = getvalue2(lines(i)%str,.false.)
-      ans1 = ans1 + val
-      val = getvalue2(lines(i)%str,.true.)
-read(help(i)%str,*) val_help
-if (val_help/=val) print *, lines(i)%str, val, val_help
-      ans2 = ans2 + val
+      ans1 = ans1 + value(lines(i)%str,.false.)
+      ans2 = ans2 + value(lines(i)%str,.true.)
     end do
     print '("Answer 01 Part 1 ",i0, l2)', ans1, ans1==55447
-    print '("Answer 01 Part 2 ",i0, l2, l2)', ans2, ans2==54718, ans2==54706 ! too hight
+    print '("Answer 01 Part 2 ",i0, l2)', ans2, ans2==54706
   end subroutine day2301
 
 
-  function getvalue(str) result(value)
+  function value(str, part_two)
     character(len=*), intent(in) :: str
     integer :: value
-    integer :: i, d(2)
-
-    do i=1, len(str)
-      associate(j=>todigit(str(i:i)))
-        if (j == -1) cycle
-        d(1) = j
-        exit
-      end associate
-    end do
-
-    do i=len(str), 1, -1
-      associate(j2=>todigit(str(i:i)))
-        if (j2 == -1) cycle
-        d(2) = j2
-        exit
-      end associate
-    end do
-    print *, str, d
-    value = d(1)*10+d(2)
-  end function
-
-
-  function getvalue2(str, part_two) result(val)
-    character(len=*), intent(in) :: str
-    integer :: val
     logical, intent(in) :: part_two
 
-    character(len=:), allocatable :: old, new
-    integer, allocatable :: digits(:)
-    integer :: z
+    integer :: z1, z2
 
-    allocate(digits(0))
-    allocate(character(len=len(str)):: old)
-    old = str
-    do
-      call strip(old, new, z, part_two)
-      if (z==-1) exit
-      digits = [digits, z]
-      deallocate(old)
-      allocate(character(len=len(new)) :: old)
-      old = new
-    end do
-    if (size(digits)==0) then
-      print *, '#'//str//'#'
-      if (part_two) error stop 'zero digits in string'
-      val = 0
-    else
-      val = 10*digits(1) + digits(size(digits))
-      if (val<11 .or. val>99) error stop 'value not'
-    end if
+    z1 = strip(str, .false., part_two)
+    z2 = strip(str, .true.,  part_two)
 
-!   if (part_two) &
-!     print '(i3,1x,a,*(i1,1x))', val, '$'//str//'$', digits
+    if (z1==-1 .or. z2==-1) error stop 'invalid string'
+    value = 10*z1 + z2
   end function
 
 
@@ -99,58 +50,54 @@ if (val_help/=val) print *, lines(i)%str, val, val_help
   end function
 
 
-  subroutine strip(old, new, z, part_two)
-    character(len=*), intent(in) :: old
-    character(len=:), allocatable, intent(out) :: new
-    integer, intent(out) :: z
-    logical, intent(in) :: part_two
+  function strip(str, back, part_two) result(z)
+    character(len=*), intent(in) :: str
+    logical, intent(in) :: back, part_two
+    integer :: z
 
-    integer :: i, zpos, tmp, zlen
-    character(len=10), parameter, dimension(0:9) :: words = &
-      [ 'zero      ', &
-        'one       ', &
-        'two       ', &
-        'three     ', &
-        'four      ', &
-        'five      ', &
-        'six       ', &
-        'seven     ', &
-        'eight     ', &
-        'nine      ' ]
-
+    integer :: i, zpos, from, to, step
+    character(len=5), parameter, dimension(0:9) :: words = &
+      [ 'zero ', 'one  ', 'two  ', 'three', 'four ', &
+        'five ', 'six  ', 'seven', 'eight', 'nine ' ]
     z = -1
-    zpos = huge(zpos)
+    if (back) then
+      zpos = 0
+    else
+      zpos = huge(zpos)
+    end if
 
-    ! Search for the first arabic digit
-    do i=1, len(old)
-      associate(dig=>todigit(old(i:i)))
+    ! Search for the first/last "1", "2"
+    if (.not. back) then
+      from = 1
+      to = len(str)
+      step = 1
+    else
+      from = len(str)
+      to = 1
+      step = -1
+    end if
+    do i = from, to, step
+      associate(dig=>todigit(str(i:i)))
         if (dig == -1) cycle
         zpos = i
         z = dig
         exit
       end associate
     end do
-    if (i/=len(old)+1) zlen = 1
 
-    ! Search for the first string "one", "two", ...
+    ! Search for the first/last "one", "two", ...
     if (part_two) then
       do i = 0, 9
-        tmp = index(old, trim(words(i)))
-        if (tmp==0) cycle
-        if (tmp > zpos) cycle
-        if (tmp==zpos) error stop 'not possible'
-        zpos = tmp
-        z = i
-        zlen = len_trim(words(i))
+        associate(p => index(str, trim(words(i)), back=back))
+          if (p==0) cycle
+          if ((.not. back .and. p > zpos) .or. &
+               (     back .and. p < zpos)) cycle
+          if (p==zpos) error stop 'not possible'
+          zpos = p
+          z = i
+        end associate
       end do
     end if
-
-    if (zpos==huge(zpos)) then
-      allocate(character(len=0) :: new)
-    else
-      allocate(character(len=(len(old)-(zpos+zlen)+1)) :: new)
-      new = old(zpos+zlen:len(old))
-    end if
-  end subroutine
+  end function strip
 
 end module day2301_mod
