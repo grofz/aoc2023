@@ -9,7 +9,7 @@ contains
     type(string_t), allocatable :: lines(:)
     integer, parameter :: MAX_CUBES(3) = [12,13,14]
     integer, allocatable :: cubes(:,:)
-    integer :: i, ans1, ans2, tmp
+    integer :: i, ans1, ans2
 
     lines = read_strings(file)
     ans1 = 0
