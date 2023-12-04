@@ -9,3 +9,10 @@ for example "oneight". Using "scan" and "index" intrinsics.
 ## Day 02: Cube Conundrum
 Parse the clear syntax to the array, Search for maximum values in this array.
 Using "split" function.
+
+## Day 03: Gear Ratios
+Find text labels in a 2D-array of characters, then search arouond this label
+for the presence of particular characters.
+
+## Day 04: Scratchcards
+Parse a line of numbers into a pair of arrays. Compare the two arrays.
