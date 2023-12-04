@@ -27,7 +27,7 @@ program aoc2023
   call cpu_time(time(4))
   time(4) = time(4) - time(3)
 
-  do i=1,1
+  do i=1,4
     print '("Time ",i2,1x,f8.3," ms")', i, time(i)*1000
   end do
 end program aoc2023
