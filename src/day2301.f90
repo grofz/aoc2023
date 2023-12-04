@@ -19,8 +19,8 @@ contains
       ans1 = ans1 + value(lines(i)%str,.false.)
       ans2 = ans2 + value(lines(i)%str,.true.)
     end do
-    print '("Answer 01 Part 1 ",i0, l2)', ans1, ans1==55447
-    print '("Answer 01 Part 2 ",i0, l2)', ans2, ans2==54706
+    print '("Answer 01/1 ",i0, l2)', ans1, ans1==55447
+    print '("Answer 01/2 ",i0, l2)', ans2, ans2==54706
   end subroutine day2301
 
 
@@ -55,7 +55,7 @@ contains
     logical, intent(in) :: back, part_two
     integer :: z
 
-    integer :: i, zpos, from, to, step
+    integer :: i, zpos
     character(len=5), parameter, dimension(0:9) :: words = &
       [ 'zero ', 'one  ', 'two  ', 'three', 'four ', &
         'five ', 'six  ', 'seven', 'eight', 'nine ' ]
@@ -67,23 +67,13 @@ contains
     end if
 
     ! Search for the first/last "1", "2"
-    if (.not. back) then
-      from = 1
-      to = len(str)
-      step = 1
-    else
-      from = len(str)
-      to = 1
-      step = -1
-    end if
-    do i = from, to, step
-      associate(dig=>todigit(str(i:i)))
-        if (dig == -1) cycle
-        zpos = i
-        z = dig
-        exit
-      end associate
-    end do
+    associate(p => scan(str, '0123456789', back=back))
+      if (p/=0) then
+        z = todigit(str(p:p))
+        zpos = p
+        if (z==-1) error stop 'digit not recognized'
+      end if
+    end associate
 
     ! Search for the first/last "one", "two", ...
     if (part_two) then
