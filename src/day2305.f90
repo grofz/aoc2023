@@ -18,6 +18,11 @@ module day2305_mod
     module procedure map_new
   end interface
 
+  type interval_t
+    integer(int64) :: beg
+    integer(int64) :: size
+  end type
+
 contains
 
   subroutine day2305(file)
@@ -28,7 +33,9 @@ contains
     integer(int64), allocatable :: seeds(:)
     integer :: ibeg, iend, inext, i, j
     integer(int64) :: ans1
+    type(interval_t), allocatable :: seeds2(:)
 
+    ! Parsing the input
     lines = read_strings(file)
     inext = 1
     allocate(maps(0))
@@ -47,15 +54,25 @@ contains
     end do
     print *, 'seeds: ',seeds
 
+    ! Prepare for Part 2
+    allocate(seeds2(size(seeds)/2))
+    do i=1, size(seeds)/2
+      seeds2(i)%beg = seeds(2*i-1)
+      seeds2(i)%size = seeds(2*i)
+print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
+    end do
+
+
+    ! Part 1
     do i=1, size(maps)
       do j=1, size(seeds)
         seeds(j) = map_src2dst(seeds(j), maps(i))
-        print *, seeds(j)
       end do
-      print *
     end do
     ans1 = minval(seeds)
     print '("Answer 05/1 ",i0,l2)', ans1, ans1==57075758_int64
+
+    ! Part 2
 
 
    !do i=1, size(maps)
@@ -63,6 +80,39 @@ contains
    !end do
   end subroutine day2305
 
+
+  subroutine map_range(srci, map, dsti)
+    type(interval_t), intent(in) :: srci
+    type(map_t), intent(in) :: map
+    type(interval_t), allocatable :: dsti(:)
+
+    integer(int64), allocatable :: spts(:)
+    integer(int64) :: bp, ep
+    integer :: i
+
+    ! Find separation points
+    !    |MAP-R1|     |MAP_R2|   |MAP_R3|
+    ! |--a------b-----c------d---e-|  srci
+    !
+    ! |-||------||---||-----||--||-|  dsti - before shifting
+
+    allocate(spts(0))
+    do i=1, size(map%ranges)
+      bp = map%ranges(i)%src
+      ep = map%ranges(i)%src + map%ranges(i)%size-1
+
+      if (bp >= srci%beg .and. bp <= srci%beg+srci%size-1) then
+        spts = [spts, bp]
+      end if
+      if (ep >= srci%beg .and. ep <= srci%beg+srci%size-1) then
+      end if
+
+    end do
+  end subroutine map_range
+
+  ! ==============
+  ! Part 1 mapping
+  ! ==============
 
   function map_src2dst(src, map) result(dst)
     integer(int64), intent(in) :: src
@@ -81,7 +131,7 @@ contains
       end associate
     end do
 
-    print *, map%srcname%str, src, '-->', map%dstname%str, dst
+   !print *, map%srcname%str, src, '-->', map%dstname%str, dst
    !stop
   end function map_src2dst
 
