@@ -21,6 +21,8 @@ module day2305_mod
   type interval_t
     integer(int64) :: beg
     integer(int64) :: size
+  contains
+    procedure :: print=>interval_print
   end type
 
 contains
@@ -32,8 +34,8 @@ contains
     type(map_t), allocatable :: maps(:)
     integer(int64), allocatable :: seeds(:)
     integer :: ibeg, iend, inext, i, j
-    integer(int64) :: ans1
-    type(interval_t), allocatable :: seeds2(:)
+    integer(int64) :: ans1, ans2
+    type(interval_t), allocatable :: seeds2(:), seeds2new(:), dsti(:)
 
     ! Parsing the input
     lines = read_strings(file)
@@ -52,16 +54,15 @@ contains
       end if
       if (inext > size(lines)) exit
     end do
-    print *, 'seeds: ',seeds
+!   print *, 'seeds: ',seeds
 
     ! Prepare for Part 2
     allocate(seeds2(size(seeds)/2))
     do i=1, size(seeds)/2
       seeds2(i)%beg = seeds(2*i-1)
       seeds2(i)%size = seeds(2*i)
-print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
     end do
-
+    call interval_sort(seeds2)
 
     ! Part 1
     do i=1, size(maps)
@@ -73,6 +74,32 @@ print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
     print '("Answer 05/1 ",i0,l2)', ans1, ans1==57075758_int64
 
     ! Part 2
+    do i=1, size(maps)
+      print *, 'MAP = ', maps(i)%srcname%str//'->'//maps(i)%dstname%str, size(seeds2)
+!     do j=1, size(seeds2)
+!       print *, '  SRC = ', seeds2(j)%print()
+!     end do
+
+      allocate(seeds2new(0))
+      do j=1, size(seeds2)
+        call map_range(seeds2(j), maps(i), dsti)
+        seeds2new = [seeds2new, dsti]
+      end do
+      call move_alloc(seeds2new, seeds2)
+      call interval_sort(seeds2)
+
+!     do j=1, size(seeds2)
+!       print *, '  DST = ', seeds2(j)%print()
+!     end do
+    end do
+
+!   do i=1, size(seeds2)
+!     print *, seeds2(i)%print()
+!   end do
+
+    if (size(seeds2)<1) error stop 'solution not found'
+    ans2 = seeds2(1)%beg
+    print '("Answer 04/2 ",i0,l2)', ans2, ans2==31161857_int64
 
 
    !do i=1, size(maps)
@@ -84,31 +111,70 @@ print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
   subroutine map_range(srci, map, dsti)
     type(interval_t), intent(in) :: srci
     type(map_t), intent(in) :: map
-    type(interval_t), allocatable :: dsti(:)
-
-    integer(int64), allocatable :: spts(:)
+    type(interval_t), intent(out), allocatable :: dsti(:)
+!
+! "map%ranges(:)" must be sorted!
+!
+    type(interval_t) :: wrki, movi
     integer(int64) :: bp, ep
     integer :: i
 
-    ! Find separation points
-    !    |MAP-R1|     |MAP_R2|   |MAP_R3|
-    ! |--a------b-----c------d---e-|  srci
-    !
-    ! |-||------||---||-----||--||-|  dsti - before shifting
+    allocate(dsti(0))
+    wrki = srci
+    i = 1
+    do
+      if (i > size(map%ranges)) exit
 
-    allocate(spts(0))
-    do i=1, size(map%ranges)
+      if (wrki%size==0) exit
+
       bp = map%ranges(i)%src
       ep = map%ranges(i)%src + map%ranges(i)%size-1
 
-      if (bp >= srci%beg .and. bp <= srci%beg+srci%size-1) then
-        spts = [spts, bp]
-      end if
-      if (ep >= srci%beg .and. ep <= srci%beg+srci%size-1) then
-      end if
+      ! do nothing
+      ! b----e
+      !       |-wrki-|
+      if (ep < wrki%beg) then
+        i = i + 1
 
+      ! chop off new interval from left and move it
+      !   0123456789012
+      ! b----------e
+      !   |---wrki----|
+      !
+      !   |--eE--------| (after)
+      else if (bp <= wrki%beg) then
+        movi%beg = wrki%beg
+        movi%size= min(ep - wrki%beg + 1, wrki%size)
+        wrki%beg = ep + 1
+        wrki%size = wrki%size - movi%size
+
+        ! shift the "movi" and add it to desitnation intervals
+        movi%beg = movi%beg + (map%ranges(i)%dst-map%ranges(i)%src)
+        dsti = [dsti, movi]
+
+        i = i + 1
+
+      ! chop off new interval from left and leave it
+      !   01234567890
+      !      b----e
+      !   |----wrki-----|
+      !
+      !   |-|b-wrki----| (after)
+      else
+        movi%beg = wrki%beg
+        movi%size = min(bp - wrki%beg, wrki%size)
+        wrki%beg = bp
+        wrki%size = wrki%size - movi%size
+
+        dsti = [dsti, movi]
+
+        i = i + 0
+      end if
     end do
+
+    if (wrki%size > 0) dsti = [dsti, wrki]
   end subroutine map_range
+
 
   ! ==============
   ! Part 1 mapping
@@ -151,6 +217,7 @@ print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
    !print *, src, dst, range%src, range%dst, range%size
   end function in_range_map
 
+
   ! =============
   ! Input parsing
   ! =============
@@ -164,6 +231,7 @@ print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
     type(string_t), intent(in) :: lines(:)
 
     integer :: dash1, dash2, colon, i
+    integer(int64) :: last
 
     associate(fl => lines(1)%str)
       dash1 = scan(fl,'-')
@@ -179,7 +247,36 @@ print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
     do i=2, size(lines)
       new%ranges(i-1) = range_t(lines(i)%str)
     end do
+
+    ! Sort and check that ranges do not overlap
+    call map_sort(new%ranges)
+    last = -1_int64
+    do i=1, size(new%ranges)
+      if (new%ranges(i)%src <= last) error stop 'overlapping interval'
+      last = new%ranges(i)%src+new%ranges(i)%size-1
+    end do
   end function map_new
+
+
+  subroutine map_sort(arr)
+    type(range_t), intent(inout) :: arr(:)
+
+    integer :: i, j
+    type(range_t) :: tmp
+
+    do i = 2, size(arr)
+      tmp = arr(i)
+      do j = i-1, 1, -1
+        if (arr(j)%src > tmp%src) then
+          arr(j+1) = arr(j)
+        else
+          exit
+        end if
+      end do
+      arr(j+1) = tmp
+    end do
+
+  end subroutine map_sort
 
 
   subroutine mark_block(lines, ibeg, iend, inext)
@@ -216,5 +313,41 @@ print *, seeds2(i)%beg, seeds2(i)%beg+seeds2(i)%size-1
     if (i==MAX_N+1) error stop 'increase MAX_N'
     arr = tmp(1:i-1)
   end function fill_array
+
+
+  ! =====================
+  ! interval_t procedures
+  ! =====================
+
+  function interval_print(this) result(str)
+    class(interval_t), intent(in) :: this
+    character(len=:), allocatable :: str
+
+    character(len=200) :: tmp
+
+    tmp = ''
+    write(tmp,'(i0,"-",i0)') this%beg, this%beg+this%size-1
+    str = trim(tmp)
+  end function interval_print
+
+
+  subroutine interval_sort(arr)
+    type(interval_t), intent(inout) :: arr(:)
+
+    integer :: i, j
+    type(interval_t) :: tmp
+
+    do i = 2, size(arr)
+      tmp = arr(i)
+      do j = i-1, 1, -1
+        if (arr(j)%beg > tmp%beg) then
+          arr(j+1) = arr(j)
+        else
+          exit
+        end if
+      end do
+      arr(j+1) = tmp
+    end do
+  end subroutine interval_sort
 
 end module day2305_mod
