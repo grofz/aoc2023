@@ -20,7 +20,7 @@ module day2305_mod
 
   type interval_t
     integer(int64) :: beg
-    integer(int64) :: size
+    integer(int64) :: size=1_int64
   contains
     procedure :: print=>interval_print
   end type
@@ -32,10 +32,10 @@ contains
 
     type(string_t), allocatable :: lines(:)
     type(map_t), allocatable :: maps(:)
-    integer(int64), allocatable :: seeds(:)
-    integer :: ibeg, iend, inext, i, j
+    integer(int64), allocatable :: nums(:)
+    type(interval_t), allocatable :: seeds1(:), seeds2(:)
     integer(int64) :: ans1, ans2
-    type(interval_t), allocatable :: seeds2(:), seeds2new(:), dsti(:)
+    integer :: ibeg, iend, inext, i
 
     ! Parsing the input
     lines = read_strings(file)
@@ -47,75 +47,63 @@ contains
         ! seeds
         i = scan(lines(1)%str,':')
         if (i==0) error stop 'error reading line of seeds'
-        seeds = fill_array(lines(1)%str(i+1:))
+        nums = fill_array(lines(1)%str(i+1:))
+        if (mod(size(nums),2)/=0) error stop 'un-even number of seeds'
+        allocate(seeds1(size(nums)), seeds2(size(nums)/2))
       else
         ! maps
         maps = [maps, map_t(lines(ibeg:iend))]
       end if
       if (inext > size(lines)) exit
     end do
-!   print *, 'seeds: ',seeds
 
-    ! Prepare for Part 2
-    allocate(seeds2(size(seeds)/2))
-    do i=1, size(seeds)/2
-      seeds2(i)%beg = seeds(2*i-1)
-      seeds2(i)%size = seeds(2*i)
+    ! Prepare seeds intervals
+    do i=1, size(nums)
+      seeds1(i)%beg = nums(i)
+      if (mod(i,2)==0) then
+        seeds2(i/2)%beg = nums(i-1)
+        seeds2(i/2)%size = nums(i)
+      end if
     end do
-    call interval_sort(seeds2)
 
-    ! Part 1
-    do i=1, size(maps)
-      do j=1, size(seeds)
-        seeds(j) = map_src2dst(seeds(j), maps(i))
-      end do
-    end do
-    ans1 = minval(seeds)
+    ! Solve Parts 1 and 2
+    ans1 = minimum_location(seeds1, maps)
     print '("Answer 05/1 ",i0,l2)', ans1, ans1==57075758_int64
-
-    ! Part 2
-    do i=1, size(maps)
-      print *, 'MAP = ', maps(i)%srcname%str//'->'//maps(i)%dstname%str, size(seeds2)
-!     do j=1, size(seeds2)
-!       print *, '  SRC = ', seeds2(j)%print()
-!     end do
-
-      allocate(seeds2new(0))
-      do j=1, size(seeds2)
-        call map_range(seeds2(j), maps(i), dsti)
-        seeds2new = [seeds2new, dsti]
-      end do
-      call move_alloc(seeds2new, seeds2)
-      call interval_sort(seeds2)
-
-!     do j=1, size(seeds2)
-!       print *, '  DST = ', seeds2(j)%print()
-!     end do
-    end do
-
-!   do i=1, size(seeds2)
-!     print *, seeds2(i)%print()
-!   end do
-
-    if (size(seeds2)<1) error stop 'solution not found'
-    ans2 = seeds2(1)%beg
-    print '("Answer 04/2 ",i0,l2)', ans2, ans2==31161857_int64
-
-
-   !do i=1, size(maps)
-   !  print *, maps(i)%srcname%str,'-',maps(i)%dstname%str, size(maps(i)%ranges)
-   !end do
+    ans2 = minimum_location(seeds2, maps)
+    print '("Answer 05/2 ",i0,l2)', ans2, ans2==31161857_int64
   end subroutine day2305
 
 
-  subroutine map_range(srci, map, dsti)
+  function minimum_location(seeds, maps) result(ans)
+    type(interval_t), intent(in) :: seeds(:)
+    type(map_t), intent(in) :: maps(:)
+    integer(int64) :: ans
+
+    integer :: i, j
+    type(interval_t), allocatable :: ints(:), newints(:)
+
+    ints = seeds
+    do i=1, size(maps)
+      allocate(newints(0))
+      do j=1, size(ints)
+        newints = [newints, map_range(ints(j), maps(i))]
+      end do
+      call move_alloc(newints, ints)
+    end do
+    if (size(ints)<1) error stop 'solution not found'
+    call interval_sort(ints)
+    ans = ints(1)%beg
+  end function minimum_location
+
+
+  function map_range(srci, map) result(dsti)
     type(interval_t), intent(in) :: srci
     type(map_t), intent(in) :: map
-    type(interval_t), intent(out), allocatable :: dsti(:)
+    type(interval_t), allocatable :: dsti(:)
 !
-! "map%ranges(:)" must be sorted!
+! "map%ranges(:)" must be sorted and without overlaps!
 !
-    type(interval_t) :: wrki, movi
+    type(interval_t) :: wrki, newi
     integer(int64) :: bp, ep
     integer :: i
 
@@ -124,7 +112,6 @@ contains
     i = 1
     do
       if (i > size(map%ranges)) exit
-
       if (wrki%size==0) exit
 
       bp = map%ranges(i)%src
@@ -137,85 +124,46 @@ contains
         i = i + 1
 
       ! chop off new interval from left and move it
-      !   0123456789012
-      ! b----------e
-      !   |---wrki----|
       !
-      !   |--eE--------| (after)
+      !  b------e            (case A)
+      !  b----------------e  (case B)
+      !   |----wrki-----|
+      !
+      !   |-newi||-wrki-|           (after A)
+      !   |-----newi----| + wrki==0 (after B)
       else if (bp <= wrki%beg) then
-        movi%beg = wrki%beg
-        movi%size= min(ep - wrki%beg + 1, wrki%size)
+        newi%beg = wrki%beg
+        newi%size = min(ep - wrki%beg + 1, wrki%size)
         wrki%beg = ep + 1
-        wrki%size = wrki%size - movi%size
+        wrki%size = wrki%size - newi%size
 
-        ! shift the "movi" and add it to desitnation intervals
-        movi%beg = movi%beg + (map%ranges(i)%dst-map%ranges(i)%src)
-        dsti = [dsti, movi]
-
+        ! shift the "newi" and add it to desitnation intervals
+        newi%beg = newi%beg + (map%ranges(i)%dst-map%ranges(i)%src)
+        dsti = [dsti, newi]
         i = i + 1
 
       ! chop off new interval from left and leave it
-      !   01234567890
-      !      b----e
+      !
+      !         b----e          (case C)
+      !                  b----e (case D)
       !   |----wrki-----|
       !
-      !   |-|b-wrki----| (after)
+      !   |newi||-wrki--|          (after C)
+      !   |----newi-----| + wrk==0 (after D)
       else
-        movi%beg = wrki%beg
-        movi%size = min(bp - wrki%beg, wrki%size)
+        newi%beg = wrki%beg
+        newi%size = min(bp - wrki%beg, wrki%size)
         wrki%beg = bp
-        wrki%size = wrki%size - movi%size
+        wrki%size = wrki%size - newi%size
 
-        dsti = [dsti, movi]
-
+        dsti = [dsti, newi]
         i = i + 0
       end if
     end do
 
-    if (wrki%size > 0) dsti = [dsti, wrki]
-  end subroutine map_range
-
-
-  ! ==============
-  ! Part 1 mapping
-  ! ==============
-
-  function map_src2dst(src, map) result(dst)
-    integer(int64), intent(in) :: src
-    type(map_t), intent(in) :: map
-    integer(int64) :: dst
-
-    integer :: i
-
-    dst = src
-    do i=1, size(map%ranges)
-      associate(j => in_range_map(src,map%ranges(i)))
-        if (j/=-1) then
-          dst = j
-          exit
-        end if
-      end associate
-    end do
-
-   !print *, map%srcname%str, src, '-->', map%dstname%str, dst
-   !stop
-  end function map_src2dst
-
-
-  function in_range_map(src, range) result(dst)
-    integer(int64), intent(in) :: src
-    type(range_t), intent(in) :: range
-    integer(int64) :: dst
-
-    integer(int64) :: lb, ub
-
-    dst = -1_int64
-    lb = range%src
-    ub = lb + range%size - 1
-    if (src>=lb .and. src<=ub) dst = range%dst + (src-lb)
-
-   !print *, src, dst, range%src, range%dst, range%size
-  end function in_range_map
+    if (wrki%size > 0) error stop 'interval not completely processed'
+    if (size(dsti) < 1) error stop 'returning null'
+  end function map_range
 
 
   ! =============
@@ -226,6 +174,7 @@ contains
     character(len=*), intent(in) :: str
     read(str, *) new%dst, new%src, new%size
   end function range_new
+
 
   type(map_t) function map_new(lines) result(new)
     type(string_t), intent(in) :: lines(:)
@@ -275,7 +224,6 @@ contains
       end do
       arr(j+1) = tmp
     end do
-
   end subroutine map_sort
 
 
@@ -293,8 +241,6 @@ contains
     ibeg = inext
     iend = i-1
     inext = i+1
-
-    !print *, 'mark_block ', ibeg, iend
   end subroutine mark_block
 
 
