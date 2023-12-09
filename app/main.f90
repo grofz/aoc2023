@@ -8,6 +8,7 @@ program aoc2023
   use day2306_mod, only: day2306
   use day2307_mod, only: day2307
   use day2308_mod, only: day2308
+  use day2309_mod, only: day2309
   implicit none
 
   real(real64) :: time(0:25)
@@ -47,7 +48,11 @@ program aoc2023
   call cpu_time(time(8))
   time(8) = time(8) - time(7)
 
-  do i=1,8
+  09 call day2309('inp/09/input.txt')
+  call cpu_time(time(9))
+  time(9) = time(9) - time(8)
+
+  do i=1,9
     print '("Time ",i2,1x,f8.3," ms")', i, time(i)*1000
   end do
 end program aoc2023
