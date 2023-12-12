@@ -10,12 +10,13 @@ program aoc2023
   use day2308_mod, only: day2308
   use day2309_mod, only: day2309
   use day2310_mod, only: day2310
+  use day2312_mod, only: day2312
   implicit none
 
   real(real64) :: time(0:25)
   integer :: i
 
-  goto 10
+  goto 12
   call cpu_time(time(0))
 
   01 call day2301('inp/01/input.txt')
@@ -55,9 +56,14 @@ program aoc2023
   time(9) = time(9) - time(8)
 
   10 call day2310('inp/10/input.txt')
+  call cpu_time(time(10))
+  time(10) = time(10) - time(9)
+
+  !12 call day2312('inp/12/input.txt')
+  12 call day2312('inp/12/test.txt')
   stop 0
 
-  do i=1,9
+  do i=1,10
     print '("Time ",i2,1x,f8.3," ms")', i, time(i)*1000
   end do
 end program aoc2023
