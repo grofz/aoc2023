@@ -12,7 +12,7 @@ module day2312_mod
     module procedure state_unfold
   end interface state_t
 
-  integer, parameter :: IS_INVALID=1, IS_INCOMPLETE=2, IS_VALID=0
+  integer, parameter :: RES_WIN=10, RES_LOSE=11, RES_DEFAULT=12
 
 contains
 
@@ -20,154 +20,152 @@ contains
     character(len=*), intent(in) :: file
 
     type(string_t), allocatable :: lines(:)
-    type(state_t), allocatable :: rows(:), rows2(:)
-    integer :: i, j
-    integer(int64) :: ans1, ans2
+    integer :: i
+    integer(int64) :: ans1, ans2, j
 
     lines = read_strings(file)
-    allocate(rows(size(lines)))
-    allocate(rows2(size(lines)))
     ans1 = 0
     ans2 = 0
-    do i=1, size(rows)
-      rows(i) = state_t(lines(i)%str)
-      call complete(rows(i), j)
+    do i=1, size(lines)
+      call count_paths(state_t(lines(i)%str), j)
       ans1 = ans1 + j
     end do
     print '("Answer 12/1 ",i0,l2)', ans1, ans1==7857
 
-    do i=1, size(rows)
-      rows2(i) = state_t(rows(i))
-  print '(*(a1))', rows(i)%word
-  print '(*(i0,1x))', rows(i)%groups
-  print *, 'unfold to'
-  print '(*(a1))', rows2(i)%word
-  print '(*(i0,1x))', rows2(i)%groups
-
-      call complete(rows2(i), j)
+    do i=1, size(lines)
+      call count_paths(state_t(state_t(lines(i)%str)), j)
       ans2 = ans2 + j
-      print *, 'count =',j
-      print *
     end do
-
-    print '("Answer 12/1 ",i0,l2)', ans2, ans2==1
+    print '("Answer 12/2 ",i0,l2)', ans2, ans2==28606137449920_int64
   end subroutine day2312
 
 
-  recursive subroutine complete(state, count)
+  recursive subroutine count_paths(state, cnt, iw, ig)
     type(state_t), intent(in) :: state
-    integer, intent(out) :: count
+    integer(int64), intent(out) :: cnt
+    integer, intent(in), optional :: iw, ig
 
-    integer :: i
-    type(state_t) :: state1, state2
-    integer :: count1, count2
+    integer :: iw0, ig0, res, iw1, ig1, iw2, ig2
+    integer(int64) :: cnt0, cnt1
 
-    select case(state_eval(state))
-    case(IS_INCOMPLETE)
-      do i=1, size(state%word)
-        if (state%word(i)=='?') exit
-      end do
-      if (i==size(state%word)+1) error stop 'no more ?'
+    integer(int64), allocatable, save :: memo(:,:)
 
-      state1 = state
-      state2 = state
-      state1%word(i)='#'
-      state2%word(i)='.'
-      call complete(state1, count1)
-      call complete(state2, count2)
-      count = count1 + count2
-    case(IS_VALID)
-      count = 1
-!     print *, 'valid =',state%word
-    case(IS_INVALID)
-      count = 0
-    case default
-      error stop 'invalid state'
-    end select
-  end subroutine complete
-
-
-  integer function state_eval(this) result(res)
-    type(state_t), intent(in) :: this
-
-    integer :: i, j, cnt, state
-    integer, parameter :: COUNTING=1, SKIPING=0
-    integer :: nfree, nleft
-
-    nleft = sum(this%groups)-count(this%word=='#')
-    nfree = count(this%word=='?')
-    if (nleft > nfree) then
-      res = IS_INVALID
-      return
+    iw0 = 1
+    ig0 = 1
+    if (present(iw)) iw0 = iw
+    if (present(ig)) ig0 = ig
+    if (.not. present(iw)) then
+      if (allocated(memo)) deallocate(memo)
+      allocate(memo(size(state%word)+1, size(state%groups)+1),source=-1_int64)
     end if
 
-
-    i = 0
-    state = SKIPING
-    res = IS_INCOMPLETE
-    do j=1,size(this%word)
-      if (this%word(j)=='?') exit
-      if (this%word(j)=='#') then
-        if (state==COUNTING) then
-          cnt = cnt + 1
-        else if (state==SKIPING) then
-          cnt = 1
-          i = i + 1
-          state = COUNTING
-        end if
-      else if (this%word(j)=='.') then
-        if (state==COUNTING) then
-          state = SKIPING
-          if (i<=size(this%groups)) then
-            if (cnt/=this%groups(i)) then
-              res = IS_INVALID
-              return
-            end if
-          else
-            res = IS_INVALID
-            return
-          end if
-        else if (state==SKIPING) then
-          continue
-        end if
+    ! make moves until the choice must be made
+    do
+      call next_state(state, iw0, ig0, res)
+      if (res==RES_WIN) then
+        cnt = 1
+        return
+      else if (res==RES_LOSE) then
+        cnt = 0
+        return
+      else if (iw0 <= size(state%word)) then
+        if (state%word(iw0)=='?') exit
       end if
     end do
 
-    if (j==size(this%word)+1) then
-      ! reached the end
-      if (state==COUNTING) then
-        if (i==size(this%groups)) then
-          if (cnt==this%groups(i)) then
-            ! agrees with pattern
-            res = IS_VALID
-          else
-            ! different than required number
-            res = IS_INVALID
-          end if
-        else
-          res = IS_INVALID
-        end if
-      else if (state==SKIPING) then
-        if (i==size(this%groups)) then
-          res = IS_VALID
-        else
-          res = IS_INVALID
-        end if
-      end if
-    else
-      ! exit due to '?' or invalidation
-      if (state==COUNTING) then
-        if (i<=size(this%groups)) then
-          if (cnt>this%groups(i)) then
-            ! agrees with pattern
-            res = IS_INVALID
-          end if
-        end if
-      end if
-    end if
-!print *, 'eval', i==size(this%groups), res, size(this%word)-j
+    cnt = memo(iw0,ig0)
+    iw2 = iw0
+    ig2 = ig0
 
-  end function state_eval
+    if (cnt==-1) then
+      ! branch the solution
+      iw1 = iw0
+      ig1 = ig0
+! print *, 'left branch', iw0, ig0
+      call next_state(state, iw0, ig0, res, next_move='.')
+      if (res==RES_LOSE) then
+        cnt0 = 0
+      else if (res==RES_WIN) then
+        cnt0 = 1
+      else
+        call count_paths(state, cnt0, iw0, ig0)
+      end if
+! print *, 'right branch', iw1, ig1
+      call next_state(state, iw1, ig1, res, next_move='#')
+      if (res==RES_LOSE) then
+        cnt1 = 0
+      else if (res==RES_WIN) then
+        cnt1 = 1
+      else
+        call count_paths(state, cnt1, iw1, ig1)
+      end if
+      cnt = cnt0 + cnt1
+      memo(iw2,ig2) = cnt
+    else
+!     print *, 'used value ',iw2,ig2,cnt
+    end if
+! print *, 'count paths end ', cnt
+  end subroutine count_paths
+
+
+  subroutine next_state(state, iw, ig, res, next_move)
+    type(state_t), intent(in) :: state
+    integer, intent(inout) :: iw, ig
+    integer, intent(out)   :: res
+    character(len=1), intent(in), optional :: next_move
+
+    integer :: i, iend
+    character(len=1) :: next_char
+
+    res = RES_DEFAULT
+
+!print *, 'In next_state ',iw,ig
+    if (iw > size(state%word) .and. ig==size(state%groups)+1) then
+      res = RES_WIN
+    else if (iw > size(state%word)) then
+      res = RES_LOSE
+    else
+      next_char = state%word(iw)
+      if (next_char=='?') then
+        if (present(next_move)) then
+          next_char = next_move
+        else
+          return
+        end if
+      else
+        if (present(next_move)) error stop 'not ready to make a choice'
+      end if
+
+      select case(next_char)
+      case('.')
+        iw = iw + 1
+      case('#')
+        if (ig > size(state%groups)) then
+          res = RES_LOSE
+          return
+        end if
+        iend = iw+state%groups(ig)-1
+        do i=iw, min(iend, size(state%word))
+          ! Make sure the group contains '#" or '?'
+          if (state%word(i)=='.') exit
+        end do
+        if (i==iend+1) then
+          ! group is complete, check the following character is '.' or '?'
+          if (i <= size(state%word)) then
+              if (state%word(i)=='#') res = RES_LOSE
+          end if
+        else
+          ! the group could not be completed
+          res = RES_LOSE
+        end if
+        iw = iend+2
+        ig = ig+1
+      case default
+        error stop 'next_state - invalid letter'
+      end select
+    end if
+!print *, 'Ou next_state ',iw,ig,res
+  end subroutine next_state
 
 
   type(state_t) function state_new(str) result(new)
@@ -202,6 +200,7 @@ contains
       end associate
     end do
   end function state_unfold
+
 
   function fill_array(str) result(arr)
     character(len=*), intent(in) :: str

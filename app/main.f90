@@ -17,7 +17,6 @@ program aoc2023
   real(real64) :: time(0:25)
   integer :: i
 
-  goto 13
   goto 12
   call cpu_time(time(0))
 
@@ -61,9 +60,12 @@ program aoc2023
   call cpu_time(time(10))
   time(10) = time(10) - time(9)
 
- !12 call day2312('inp/12/input.txt')
-  12 call day2312('inp/12/test.txt')
-  stop 0
+  !11
+  call cpu_time(time(11))
+
+  12 call day2312('inp/12/input.txt')
+  call cpu_time(time(12))
+  time(12) = time(12) - time(11)
 
   13 call day2313('inp/13/input.txt')
   stop 0
