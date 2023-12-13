@@ -59,7 +59,7 @@ program aoc2023
   call cpu_time(time(10))
   time(10) = time(10) - time(9)
 
-  !12 call day2312('inp/12/input.txt')
+ !12 call day2312('inp/12/input.txt')
   12 call day2312('inp/12/test.txt')
   stop 0
 
