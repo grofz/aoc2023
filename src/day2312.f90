@@ -13,6 +13,7 @@ module day2312_mod
   end interface state_t
 
   integer, parameter :: RES_WIN=10, RES_LOSE=11, RES_DEFAULT=12
+  integer(int64), parameter :: NOTAVAIL = -1_int64
 
 contains
 
@@ -29,6 +30,7 @@ contains
     do i=1, size(lines)
       call count_paths(state_t(lines(i)%str), j)
       ans1 = ans1 + j
+ print *, j
     end do
     print '("Answer 12/1 ",i0,l2)', ans1, ans1==7857
 
@@ -50,16 +52,18 @@ contains
 
     integer(int64), allocatable, save :: memo(:,:)
 
+    ! Top level is recognized by not providing optional arguments
     iw0 = 1
     ig0 = 1
     if (present(iw)) iw0 = iw
     if (present(ig)) ig0 = ig
     if (.not. present(iw)) then
       if (allocated(memo)) deallocate(memo)
-      allocate(memo(size(state%word)+1, size(state%groups)+1),source=-1_int64)
+      allocate(memo(size(state%word)+2, size(state%groups)+1), &
+               source=NOTAVAIL)
     end if
 
-    ! make moves until the choice must be made
+    ! Make moves until the choice must be made
     do
       call next_state(state, iw0, ig0, res)
       if (res==RES_WIN) then
@@ -73,15 +77,14 @@ contains
       end if
     end do
 
-    cnt = memo(iw0,ig0)
     iw2 = iw0
     ig2 = ig0
-
-    if (cnt==-1) then
-      ! branch the solution
+    if (memo(iw2,ig2)==NOTAVAIL) then
+      ! Branch the solution
       iw1 = iw0
       ig1 = ig0
-! print *, 'left branch', iw0, ig0
+
+      ! Left branch
       call next_state(state, iw0, ig0, res, next_move='.')
       if (res==RES_LOSE) then
         cnt0 = 0
@@ -90,7 +93,8 @@ contains
       else
         call count_paths(state, cnt0, iw0, ig0)
       end if
-! print *, 'right branch', iw1, ig1
+
+      ! Right branch
       call next_state(state, iw1, ig1, res, next_move='#')
       if (res==RES_LOSE) then
         cnt1 = 0
@@ -100,11 +104,13 @@ contains
         call count_paths(state, cnt1, iw1, ig1)
       end if
       cnt = cnt0 + cnt1
+
+      ! Store result for next use
       memo(iw2,ig2) = cnt
     else
-!     print *, 'used value ',iw2,ig2,cnt
+      ! Use memorized answer
+      cnt = memo(iw2,ig2)
     end if
-! print *, 'count paths end ', cnt
   end subroutine count_paths
 
 
@@ -119,7 +125,6 @@ contains
 
     res = RES_DEFAULT
 
-!print *, 'In next_state ',iw,ig
     if (iw > size(state%word) .and. ig==size(state%groups)+1) then
       res = RES_WIN
     else if (iw > size(state%word)) then
@@ -164,7 +169,6 @@ contains
         error stop 'next_state - invalid letter'
       end select
     end if
-!print *, 'Ou next_state ',iw,ig,res
   end subroutine next_state
 
 
