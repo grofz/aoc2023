@@ -1,5 +1,6 @@
 module day2311_mod
   use parse_mod, only : read_pattern
+  use iso_fortran_env, only : int64
   implicit none
 
   character(len=1), parameter :: CH_GALAXY='#', CH_EMPTY='.'
@@ -10,38 +11,31 @@ contains
     character(len=*), intent(in) :: file
 
     character(len=1), allocatable :: galaxy(:,:)
-    integer :: ans1
+
+    integer(int64), allocatable :: xg(:), yg(:)
+    integer(int64) :: ans1, ans2
+    integer(int64), parameter :: NSHIFT=1000000_int64
 
     galaxy = read_pattern(file)
-    call expand_galaxy(galaxy)
-    ans1 = count_distsum(galaxy)
-    !call print_pattern(galaxy)
+    call expand_galaxy(galaxy, xg, yg, 2_int64)
+    ans1 = count_distsum(xg, yg)
     print '("Answer 11/1 ",i0,l2)', ans1, ans1==9724940
 
+    call expand_galaxy(galaxy, xg, yg, NSHIFT)
+    ans2 = count_distsum(xg, yg)
+    print '("Answer 11/2 ",i0,l2)', ans2, ans2==569052586852_int64
 
   end subroutine day2311
 
 
-  function count_distsum(gal) result(cnt)
-    character(len=1), intent(in) :: gal(:,:)
-    integer :: cnt
+  function count_distsum(x, y) result(cnt)
+    integer(int64), intent(in) :: x(:), y(:)
+    integer(int64) :: cnt
 
-    integer :: ngal, i, j, k
-    integer, allocatable :: x(:), y(:)
+    integer :: ngal, i, j
 
-    ngal = count(gal==CH_GALAXY)
-    allocate(x(ngal), y(ngal))
-    k = 0
-    do i=1, size(gal,1)
-      do j=1, size(gal,2)
-        if (gal(i,j)/=CH_GALAXY) cycle
-        k = k+1
-        x(k) = i
-        y(k) = j
-      end do
-    end do
-    if (k/=ngal) error stop 'some galaxies missed'
-
+    ngal = size(x)
+    if (size(y)/=ngal) error stop 'arrays x and y must have same size'
     cnt = 0
     do i=1, ngal-1
       do j=i+1, ngal
@@ -51,12 +45,15 @@ contains
   end function count_distsum
 
 
-  subroutine expand_galaxy(gal)
-    character(len=1), intent(inout), allocatable :: gal(:,:)
+  subroutine expand_galaxy(gal, xg, yg, nshift)
+    character(len=1), intent(in) :: gal(:,:)
+    integer(int64), allocatable, intent(out) :: xg(:), yg(:)
+    integer(int64), intent(in) :: nshift
+    ! each empty row/column replaced by "nshift" rows/columns
 
-    character(len=1), allocatable :: galexp(:,:)
     logical :: empty_cols(size(gal,2)), empty_rows(size(gal,1))
-    integer :: i, j, i1, j1
+    integer(int64) :: i, j, i1, j1 
+    integer :: k, ngal
 
     empty_rows = .true.
     do i=1, size(gal,1)
@@ -68,17 +65,21 @@ contains
       if (count(gal(:,j)==CH_GALAXY)>0) empty_cols(j)=.false.
     end do
 
-    allocate(galexp(size(gal,1)+count(empty_rows), size(gal,2)+count(empty_cols)))
-    galexp = CH_EMPTY
+    ngal = count(gal==CH_GALAXY)
+    allocate(xg(ngal), yg(ngal))
+
+    k=0
     do i=1, size(gal,1)
       do j=1, size(gal,2)
         if (gal(i,j)/=CH_GALAXY) cycle
-        i1 = i + count(empty_rows(1:i))
-        j1 = j + count(empty_cols(1:j))
-        galexp(i1,j1) = CH_GALAXY
+        i1 = i + (nshift-1)*count(empty_rows(1:i))
+        j1 = j + (nshift-1)*count(empty_cols(1:j))
+        k=k+1
+        yg(k) = i1
+        xg(k) = j1
       end do
     end do
-    call move_alloc(galexp, gal)
+    if (k/=ngal) error stop 'galaxies missing'
   end subroutine expand_galaxy
 
 

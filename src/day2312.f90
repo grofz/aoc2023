@@ -30,7 +30,6 @@ contains
     do i=1, size(lines)
       call count_paths(state_t(lines(i)%str), j)
       ans1 = ans1 + j
- print *, j
     end do
     print '("Answer 12/1 ",i0,l2)', ans1, ans1==7857
 

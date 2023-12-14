@@ -18,7 +18,7 @@ contains
 
     type(map_t) :: map
     integer :: ans1, ans2, i, load, k, period
-    integer, parameter :: RES_CYCLES=500, CYCLES=1000000000
+    integer, parameter :: RES_CYCLES=200, CYCLES=1000000000
     integer :: serie(2,RES_CYCLES)
 
     ! Part 1
