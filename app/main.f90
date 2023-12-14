@@ -12,12 +12,13 @@ program aoc2023
   use day2310_mod, only: day2310
   use day2312_mod, only: day2312
   use day2313_mod, only: day2313
+  use day2314_mod, only: day2314
   implicit none
 
   real(real64) :: time(0:25)
   integer :: i
 
-  goto 12
+  goto 14
   call cpu_time(time(0))
 
   01 call day2301('inp/01/input.txt')
@@ -68,6 +69,8 @@ program aoc2023
   time(12) = time(12) - time(11)
 
   13 call day2313('inp/13/input.txt')
+
+  14 call day2314('inp/14/input.txt')
   stop 0
 
   do i=1,10
