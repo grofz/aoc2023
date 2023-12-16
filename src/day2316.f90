@@ -14,6 +14,15 @@ module day2316_mod
     integer :: xy(2), d=0
   end type beam_t
 
+  type beamstack_t
+    type(beam_t), allocatable :: arr(:)
+    integer :: n=0
+  contains
+    procedure :: push => beamstack_push
+    procedure :: pop => beamstack_pop
+    procedure :: isempty => beamstack_isempty
+  end type
+
 contains
 
   subroutine day2316(file)
@@ -57,39 +66,34 @@ contains
     integer :: cnt_energized
 
     logical :: energized(4, size(map,1), size(map,2))
-    type(beam_t), allocatable :: beams(:), newbeams(:), allbeams(:)
-    integer :: i
+    type(beamstack_t) :: beams
+    type(beam_t) :: newbeams(2), curbeam
+    integer :: i, n
 
     energized = .false.
-    allocate(beams(1))
-    beams(1) = init_beam
-    do
-      if (size(beams)==0) exit
-      allocate(allbeams(0))
-      do i=1, size(beams)
-        if (energized(beams(i)%d, beams(i)%xy(1), beams(i)%xy(2))) then
-          allocate(newbeams(0))
-        else
-          energized(beams(i)%d, beams(i)%xy(1), beams(i)%xy(2)) = .true.
-          call beam_step(beams(i), map, newbeams)
-        end if
-        if (size(newbeams)>0) allbeams = [allbeams, newbeams]
-        deallocate(newbeams)
-      end do
-      call move_alloc(allbeams, beams)
+    call beams%push(init_beam)
+    do while (.not. beams%isempty())
+      call beams%pop(curbeam)
+      if (.not. energized(curbeam%d, curbeam%xy(1), curbeam%xy(2))) then
+        energized(curbeam%d, curbeam%xy(1), curbeam%xy(2)) = .true.
+        call beam_step(curbeam, map, newbeams, n)
+        do i=1,n
+          call beams%push(newbeams(i))
+        end do
+      end if
     end do
 
     cnt_energized = count(any(energized,dim=1))
   end function energize_map
 
 
-  pure subroutine beam_step(this, map, new)
+  pure subroutine beam_step(this, map, new, n)
     class(beam_t), intent(in) :: this
     character(len=1), intent(in) :: map(:,:)
-    type(beam_t), intent(out), allocatable :: new(:)
+    type(beam_t), intent(out) :: new(2)
+    integer, intent(out) :: n
 
     type(beam_t) :: tmp1, tmp2
-    integer :: i
 
     select case(map(this%xy(1), this%xy(2)))
     case(CH_EMPT)
@@ -159,15 +163,15 @@ contains
     end if
 
     if (tmp1%d==0 .and. tmp2%d==0) then
-      allocate(new(0))
+      n = 0
     else if (tmp1%d==0 .and. tmp2%d/=0) then
-      allocate(new(1))
+      n = 1
       new(1) = tmp2
     else if (tmp1%d/=0 .and. tmp2%d==0) then
-      allocate(new(1))
+      n = 1
       new(1) = tmp1
     else
-      allocate(new(2))
+      n = 2
       new(1) = tmp1
       new(2) = tmp2
     end if
@@ -204,5 +208,41 @@ contains
       write(*,*)
     enddo
   end subroutine
+
+
+  pure subroutine beamstack_push(this, beam)
+    class(beamstack_t), intent(inout) :: this
+    type(beam_t), intent(in) :: beam
+
+    type(beam_t), allocatable :: wrk(:)
+
+    if (.not. allocated(this%arr)) allocate(this%arr(2))
+    if (size(this%arr)==this%n) then
+      ! array must be extended
+      allocate(wrk(size(this%arr)*2))
+      wrk(1:size(this%arr)) = this%arr
+      call move_alloc(wrk, this%arr)
+    end if
+
+    ! push beam to the stack
+    this%n = this%n + 1
+    this%arr(this%n) = beam
+  end subroutine beamstack_push
+
+
+  pure subroutine beamstack_pop(this, beam)
+    class(beamstack_t), intent(inout) :: this
+    type(beam_t), intent(out) :: beam
+
+    if (this%isempty()) error stop 'stack is empty'
+    beam = this%arr(this%n)
+    this%n = this%n - 1
+  end subroutine beamstack_pop
+
+
+  pure logical function beamstack_isempty(this) result(isempty)
+    class(beamstack_t), intent(in) :: this
+    isempty = this%n == 0
+  end function beamstack_isempty
 
 end module day2316_mod
