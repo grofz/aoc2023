@@ -31,3 +31,10 @@ Traverse a binary graph until finding a particular node. Part 2 requires one to 
 
 ## Day 09: Mirage Maintenance
 Predict the next value in the pattern. Solved by using a recursion and making finite difference of an array of numbers. Part 2 is a trivial modification of Part 1 solution.
+
+## Day 16: The Floor Will Be Lava
+Track beams of light trough a maze of mirrors and splitters. Count the number of tiles energized by
+the light. Using an array of beams as a queue of active beams and a subroutine to generate the
+new beam(s) after one step. To prevent endless loop, a mask for each tile and direction is used,
+the beam does not propagate if the mask is already true. Part 2 just loops over different initial
+beam positions.
