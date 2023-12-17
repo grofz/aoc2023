@@ -38,3 +38,8 @@ the light. Using an array of beams as a queue of active beams and a subroutine t
 new beam(s) after one step. To prevent endless loop, a mask for each tile and direction is used,
 the beam does not propagate if the mask is already true. Part 2 just loops over different initial
 beam positions.
+
+## Day 17: Clumsy Cruicible
+Find a minuimum path of a carriage with minimum and maximum streak of direct path
+through a 2D heat map. Using Djikstra with priority queue to obtain a fast
+solution.

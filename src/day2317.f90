@@ -1,12 +1,12 @@
 module day2317_mod
   use parse_mod, only : read_pattern
-  use iso_fortran_env, only : int64
   use djikstra_mod
   implicit none
 
   integer, parameter :: DIRS(2,4)=reshape([0,1,1,0,0,-1,-1,0],[2,4])
-  integer, parameter :: MAX_STRIKES = 0
 
+  ! Global variables for Djikstra functions
+  integer :: MIN_STRIKE = 1, MAX_STRIKE=3
   integer, allocatable :: heatmap(:,:)
 
   type, extends(djikstra_node_at) :: state_t
@@ -14,42 +14,53 @@ module day2317_mod
     integer :: strike=0
     integer :: pos(2)
   contains
-    procedure :: nextngb
+    procedure :: nextngb, calchash
     procedure :: isequal, istarget
-    procedure, private :: is_gt
-    generic :: operator(>) => is_gt
   end type state_t
-
-  type statestack_t
-    type(state_t), allocatable :: arr(:)
-    integer :: n=0
-  end type
 
 contains
 
   subroutine day2317(file)
     character(len=*), intent(in) :: file
 
-    integer :: i, shortest
+    integer :: ans1, ans2
+
+    heatmap = read_numbers(file)
+    ans1 = get_answer(1,3)
+    ans2 = get_answer(4,10)
+    print '("Answer 17/1 ",i0,l2)', ans1, ans1==851
+    print '("Answer 17/2 ",i0,l2)', ans2, ans2==982
+  end subroutine day2317
+
+
+  function get_answer(a, b) result(ans)
+    integer, intent(in) :: a, b
+    integer :: ans
+
+    integer :: shortest, hash_size
     type(djikstra_node_ptr), allocatable :: nodes(:)
     type(state_t) :: start
 
-    heatmap = read_numbers(file)
+    MIN_STRIKE = a
+    MAX_STRIKE = b
+    hash_size = size(heatmap)*4*(MAX_STRIKE-MIN_STRIKE+1)
+    start%strike = MIN_STRIKE
 
-    start%pos = [2,1]
-    start%strike = 1
+    ! down
     start%dir = 2
-    call djikstra_search(nodes, start, shortest)
-print *, size(nodes), shortest+heatmap(start%pos(1),start%pos(2))
-deallocate(nodes)
+    start%pos = [1,1] + DIRS(:,start%dir)*MIN_STRIKE
+    call djikstra_search(nodes, start, shortest, hash_size)
+print *, size(nodes), shortest+sum(heatmap(2:start%pos(1),start%pos(2)))
+    ans = shortest+sum(heatmap(2:start%pos(1),start%pos(2)))
 
-    start%pos = [1,2]
-    start%strike = 1
+    ! right
+    deallocate(nodes)
     start%dir = 1
-    call djikstra_search(nodes, start, shortest)
-print *, size(nodes), shortest+heatmap(start%pos(1),start%pos(2))
-
-  end subroutine day2317
+    start%pos = [1,1] + DIRS(:,start%dir)*MIN_STRIKE
+    call djikstra_search(nodes, start, shortest, hash_size)
+print *, size(nodes), shortest+sum(heatmap(start%pos(1),2:start%pos(2)))
+    ans = min(ans, shortest+sum(heatmap(start%pos(1),2:start%pos(2))))
+  end function get_answer
 
 
   subroutine nextngb(node, flag, node_ngb, distance)
@@ -59,7 +70,7 @@ print *, size(nodes), shortest+heatmap(start%pos(1),start%pos(2))
     integer, intent(out) :: distance
 
     type(state_t) :: next
-!print *, 'node ',node%pos, node%strike, node%dir, flag
+    integer :: i1, i2, j1, j2
 
     do
       flag = flag + 1
@@ -71,26 +82,20 @@ print *, size(nodes), shortest+heatmap(start%pos(1),start%pos(2))
 
       if (next%pos(1)<1 .or. next%pos(2)<1 .or. next%pos(1)>size(heatmap,1) .or. &
           next%pos(2)>size(heatmap,2)) then
-            cycle
-      else if (next%strike > 3) then
+        cycle
+      else if (next%strike > MAX_STRIKE) then
         cycle
       else
-!print *, 'next ',next%pos, next%strike, next%dir, flag
-        distance = heatmap(next%pos(1),next%pos(2))
+        i1 = min(node%pos(1), next%pos(1))
+        i2 = max(node%pos(1), next%pos(1))
+        j1 = min(node%pos(2), next%pos(2))
+        j2 = max(node%pos(2), next%pos(2))
+        distance = sum(heatmap(i1:i2,j1:j2))-heatmap(node%pos(1),node%pos(2))
         exit
       end if
     end do
+    if (flag/=0) allocate(node_ngb, source=next)
 
-    if (flag/=0) then
-      allocate(node_ngb, source=next)
-    end if
-
-select type(node_ngb)
-class is (state_t)
-!  print *, 'next ngb ',flag, node_ngb%pos
-class default
-  if (flag/=0) error stop 'class not expected'
-end select
   end subroutine nextngb
 
 
@@ -100,21 +105,22 @@ end select
     type(state_t) :: next
 
     select case(choice)
-    case(1) ! turn left and move one step
+    case(1) ! turn left and move minimum steps
       next%dir = mod(this%dir,4)+1
-      next%strike = 1
-    case(2) ! turn right and move one step
+      next%strike = MIN_STRIKE
+    next%pos = this%pos + MIN_STRIKE*DIRS(:,next%dir)
+    case(2) ! turn right and move minimum steps
       next%dir = this%dir-1
       if (next%dir==0) next%dir=4 ! TODO (??)
-      next%strike = 1
+      next%strike = MIN_STRIKE
+      next%pos = this%pos + MIN_STRIKE*DIRS(:,next%dir)
     case(3) ! move one step
       next%dir = this%dir
       next%strike = this%strike+1
+      next%pos = this%pos + DIRS(:,next%dir)
     case default
       error stop 'invalid choice'
     end select
-
-    next%pos = this%pos + DIRS(:,next%dir)
 
   end function next_state
 
@@ -140,6 +146,27 @@ end select
   end function istarget
 
 
+  integer function calchash(node) result(hash)
+    class(state_t), intent(in) :: node
+
+    integer :: nx, ny
+    integer, parameter :: ndir=4
+
+    nx = size(heatmap,1)
+    ny = size(heatmap,2)
+
+    hash = node%pos(1)
+    hash = hash + (node%pos(2)-1)*nx
+    hash = hash + (node%dir-1)*nx*ny
+    hash = hash + (node%strike-MIN_STRIKE)*nx*ny*ndir
+
+    if (hash<1 .or. hash > nx*ny*ndir*(MAX_STRIKE-MIN_STRIKE+1)) then
+      print *, node%pos, node%dir, node%strike
+      error stop 'invalid hash'
+    end if
+  end function calchash
+
+
   function read_numbers(file) result(numbers)
     character(len=*), intent(in) :: file
     integer, allocatable :: numbers(:,:)
@@ -155,56 +182,5 @@ end select
       end do
     end do
   end function read_numbers
-
-
-  subroutine statestack_add(this, new)
-    class(statestack_t), intent(inout) :: this
-    type(state_t), intent(in) :: new
-
-    type(state_t), allocatable :: wrks(:)
-    integer :: i
-
-    if (.not. allocated(this%arr)) allocate(this%arr(10))
-    if (size(this%arr)==this%n) then
-      allocate(wrks(2*size(this%arr)))
-      wrks(1:size(this%arr)) = this%arr
-      call move_alloc(wrks, this%arr)
-    end if
-
-    do i=1, this%n
-      if (this%arr(i)>new) then
-        this%arr(i+1:this%n+1) = this%arr(i:this%n)
-        exit
-      end if
-    end do
-    this%arr(i) = new
-
-    this%n = this%n + 1
-  end subroutine statestack_add
-
-
-  subroutine statestack_remove(this, removed)
-    class(statestack_t), intent(inout) :: this
-    type(state_t), intent(out) :: removed
-
-    if (this%n==0) error stop 'statestack is empty'
-    removed = this%arr(this%n)
-    this%n = this%n-1
-  end subroutine statestack_remove
-
-
-  logical function is_gt(a, b)
-    class(state_t), intent(in) :: a, b
-
-    if (a%pos(1)+a%pos(2)>b%pos(1)+b%pos(2)) then
-      is_gt = .true.
-    else if (a%pos(1)+a%pos(2)<b%pos(1)+b%pos(2)) then
-      is_gt = .false.
-    else
-      is_gt = .false.
-    end if
-  end function is_gt
-
-
 
 end module day2317_mod
