@@ -43,3 +43,6 @@ beam positions.
 Find a minuimum path of a carriage with minimum and maximum streak of direct path
 through a 2D heat map. Using Djikstra with priority queue to obtain a fast
 solution.
+
+## Day 18: Lavaduct Lagoon
+Similar to Day 10, use Shoelace's formula to calculate the area enclosed by a polygon
