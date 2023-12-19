@@ -18,12 +18,14 @@ program aoc2023
   use day2316_mod, only: day2316
   use day2317_mod, only: day2317
   use day2318_mod, only: day2318
+  use day2319_mod, only: day2319
   implicit none
 
   real(real64) :: time(0:25)
   integer :: i
 
   call cpu_time(time(0))
+  goto 19
 
   01 call day2301('inp/01/input.txt')
   call cpu_time(time(1))
@@ -79,8 +81,13 @@ program aoc2023
   18 call day2318('inp/18/input.txt')
   call cpu_time(time(18))
 
+  19 call day2319('inp/19/input.txt')
+  !19 call day2319('inp/19/test.txt')
+  call cpu_time(time(19))
+  stop 0
+
   print *
-  do i=1,18
+  do i=1,19
     print '("Time ",i2,1x,f8.3," ms")', i, (time(i)-time(i-1))*1000
   end do
 end program aoc2023
