@@ -25,7 +25,6 @@ program aoc2023
   integer :: i
 
   call cpu_time(time(0))
-  goto 19
 
   01 call day2301('inp/01/input.txt')
   call cpu_time(time(1))
@@ -82,9 +81,7 @@ program aoc2023
   call cpu_time(time(18))
 
   19 call day2319('inp/19/input.txt')
-  !19 call day2319('inp/19/test.txt')
   call cpu_time(time(19))
-  stop 0
 
   print *
   do i=1,19
