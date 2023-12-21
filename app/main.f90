@@ -27,7 +27,6 @@ program aoc2023
   integer :: i
 
   call cpu_time(time(0))
-  goto 21
 
   01 call day2301('inp/01/input.txt')
   call cpu_time(time(1))
@@ -90,12 +89,10 @@ program aoc2023
   call cpu_time(time(20))
 
   21 call day2321('inp/21/input.txt')
-  !21 call day2321('inp/21/test.txt')
   call cpu_time(time(21))
-  stop 0
 
   print *
-  do i=1,20
+  do i=1,21
     print '("Time ",i2,1x,f8.3," ms")', i, (time(i)-time(i-1))*1000
   end do
 end program aoc2023
