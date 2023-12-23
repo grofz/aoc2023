@@ -24,10 +24,11 @@ contains
     type(vertex_t), allocatable, target :: paths(:)
     type(state_t) :: s0, sn
     integer :: ibeg, iend, i, ans1
+    integer, allocatable :: hash(:,:)
 
-    call parse_path_network(file, paths, ibeg, iend, .true.)
+    call parse_path_network(file, paths, ibeg, iend, .true., hash)
     !call parse_path_network(file, paths, ibeg, iend, .true.)
-    call reduce_network(paths)
+    call reduce_network(paths, hash)
     ibeg = findloc(paths%id, ibeg, dim=1)
     iend = findloc(paths%id, iend, dim=1)
     print *, size(paths), ibeg, iend
@@ -42,13 +43,23 @@ contains
     call dws(s0, iend, ans1, sn)
   print *, sn%value()
   print *, sn%visited
+
+    do i=1,size(paths)
+      if (sn%visited(i)) then
+      else
+        where(hash==i) hash=-1
+      end if
+    end do
+    do i=1, ubound(hash,1)-1
+      print '(*(i2,1x))', hash(i,:)
+    end do
     ans1=ans1-1 ! ignore the first square 6609"too high"
     print '("Answer 23/1 ",i0,l2)', ans1, ans1==2018
 
   end subroutine day2323
 
 
-  subroutine parse_path_network(file, paths, ibeg, iend, ispart2)
+  subroutine parse_path_network(file, paths, ibeg, iend, ispart2, hash)
     character(len=*), intent(in) :: file
     type(vertex_t), intent(out), allocatable :: paths(:)
     integer, intent(out) :: ibeg, iend
@@ -59,7 +70,7 @@ contains
       CH_RIGHT='>', CH_UP='^', CH_DOWN='v'
     integer, parameter :: DIRS(2,4)=reshape([0,1,1,0,0,-1,-1,0],[2,4])
     integer :: i, j, k, d, npaths
-    integer, allocatable :: hash(:,:)
+integer, allocatable, intent(out) :: hash(:,:)
 
     map0 = read_pattern(file)
     if (ispart2) then
@@ -68,6 +79,7 @@ contains
       where(map0==CH_UP) map0=CH_PATH
       where(map0==CH_DOWN) map0=CH_PATH
     end if
+  print *, 'No of paths =', count(map0==CH_PATH)
     allocate(map(0:size(map0,1)+1, 0:size(map0,2)+1), source=CH_FOREST)
     map(1:size(map0,1), 1:size(map0,2)) = map0
     npaths = count(map/=CH_FOREST)
@@ -149,8 +161,9 @@ contains
   end subroutine parse_path_network
 
 
-  subroutine reduce_network(arr)
+  subroutine reduce_network(arr, hash)
     type(vertex_t), allocatable, intent(inout) :: arr(:)
+    integer, intent(inout) :: hash(:,:)
 
     integer :: i, j, last
 
@@ -168,18 +181,20 @@ contains
 
           if (count(arr(i)%adj>0)/=2 .or. count(arr(j)%adj>0)/=2) cycle 
           if (.not.(any(arr(i)%adj==j) .and. any(arr(j)%adj==0) )) cycle
-          call join_vertices(arr,i,j)
+          call join_vertices(arr,i,j,hash)
           j = j-1
         end do IN
       end do OUT
       if (last==size(arr)) exit
     end do
+print *, 'Total number of paths ',sum(arr%n)
   end subroutine
 
 
-  subroutine join_vertices(arr,i,j)
+  subroutine join_vertices(arr,i,j,hash)
     type(vertex_t), allocatable :: arr(:)
     integer, intent(in) :: i, j
+    integer, intent(inout) :: hash(:,:)
 
     integer :: ind
     type(vertex_t), allocatable :: wrk(:)
@@ -200,10 +215,12 @@ contains
         do ind=1, size(arr)
           where(arr(ind)%adj==j) arr(ind)%adj=i
         end do
+        where(hash==j) hash=i
         ! all labels larger than "j" will be decreased by one
         do ind=1, size(arr)
           where(arr(ind)%adj>j) arr(ind)%adj=arr(ind)%adj-1
         end do
+        where(hash>j) hash=hash-1
         ! remove vertex "j" from table
         allocate(wrk(size(arr)-1))
         wrk(:j-1) = arr(:j-1)
@@ -255,14 +272,16 @@ contains
       associate(next=>s0%paths(s0%ipos)%adj(i))
         if (next==0) exit
         if (s0%visited(next)) cycle
-        k = k + 1
         s1 = s0
         s1%visited(s0%ipos) = .true.
         s1%ipos = next
         call dws(s1, iend, n1, s2)
-        if (n1 > n) then
-          n = n1
-          sn = s2
+        if (n1>0) then
+          k = k + 1
+          if (n1 > n) then
+            n = n1
+            sn = s2
+          end if
         end if
 
       end associate
@@ -272,7 +291,7 @@ contains
       n = n + s0%paths(s0%ipos)%n
     else
       sn = s0
-      n = 0
+      n = -huge(n)
     end if
   end subroutine dws
 
