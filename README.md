@@ -45,4 +45,20 @@ through a 2D heat map. Using Djikstra with priority queue to obtain a fast
 solution.
 
 ## Day 18: Lavaduct Lagoon
-Similar to Day 10, use Shoelace's formula to calculate the area enclosed by a polygon
+Similar to Day 10, use Shoelace's formula to calculate the area enclosed by a polygon.
+
+## Day 20: Pulse propagation
+Simulate a pulse through the network of modules. For Part 2, the size of four different cycles
+must be found and LCM used to obtain the answer.
+
+## Day 21: Step Counter
+The most difficult problem so far. Count the number of cells that can be reached within
+the set number of steps. For Part 2: Brute-forcing until a pattern is found, then using
+similar technique as in Day 9 to predict the next number in the series.
+
+## Day 22: Sand Slabs
+Simulate the fall of 3D blocks of sand.
+
+## Day 23: A long walk
+Find the longest path in a labyrinth. Solved by reducing the number of vertices and then
+recursion driven Deep-First-Search.
